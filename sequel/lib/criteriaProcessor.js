@@ -807,7 +807,17 @@ CriteriaProcessor.prototype.sort = function(options) {
 
   Object.keys(options).forEach(function(key) {
     var direction = options[key] === 1 ? 'ASC' : 'DESC';
-    self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
+    // Option to order by column from the joined table
+    if (key.indexOf('.') > 0) {
+      var keys = key.split('.');
+      if (keys.length === 2) {
+        self.queryString += utils.escapeName('__' + keys[0], self.escapeCharacter) + '.' + utils.escapeName(keys[1], self.escapeCharacter) + ' ' + direction + ', ';
+      } else {
+        self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
+      }
+    } else {
+      self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
+    }
   });
 
   // Remove trailing comma
