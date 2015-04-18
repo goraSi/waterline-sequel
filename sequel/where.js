@@ -97,9 +97,34 @@ WhereBuilder.prototype.single = function single(queryObject, options) {
     if(strategy === 1) {
 
       // Set outer join logic
-      queryString += 'LEFT OUTER JOIN ' + utils.escapeName(population.child, self.escapeCharacter) + ' AS ' + alias + ' ON ';
+      queryString += 'LEFT OUTER JOIN ' + utils.escapeName(population.child, self.escapeCharacter) + ' AS ' + alias + ' ON (';
       queryString += utils.escapeName(parentAlias, self.escapeCharacter) + '.' + utils.escapeName(population.parentKey, self.escapeCharacter);
       queryString += ' = ' + alias + '.' + utils.escapeName(population.childKey, self.escapeCharacter);
+
+      // Add condition from model's populateSettings
+      if (population.criteria && population.criteria.where) {
+        var key, keys = Object.keys(population.criteria.where);
+        for (key in keys) {
+          var column = alias + '.' + utils.escapeName(keys[key], self.escapeCharacter), value = population.criteria.where[keys[key]];
+
+          if (_.isDate(value)) {
+            value = value.getFullYear() + '-' +
+              ('00' + (value.getMonth()+1)).slice(-2) + '-' +
+              ('00' + value.getDate()).slice(-2) + ' ' +
+              ('00' + value.getHours()).slice(-2) + ':' +
+              ('00' + value.getMinutes()).slice(-2) + ':' +
+              ('00' + value.getSeconds()).slice(-2);
+          }
+
+          if (_.isString(value)) {
+            value = '"' + utils.escapeString(value) +'"';
+          }
+
+          queryString += ' AND ' + column + ' = ' + value;
+        }
+      }
+
+      queryString += ')';
 
       addSpace = true;
     }
