@@ -5,6 +5,22 @@
 var _ = require('lodash');
 var utils = require('./utils');
 var hop = utils.object.hasOwnProperty;
+var operators = [
+  '<',
+  'lessThan',
+  '<=',
+  'lessThanOrEqual',
+  '>',
+  'greaterThan',
+  '>=',
+  'greaterThanOrEqual',
+  '!',
+  'not',
+  'like',
+  'contains',
+  'startsWith',
+  'endsWith'
+];
 
 /**
  * Process Criteria
@@ -367,15 +383,33 @@ CriteriaProcessor.prototype.buildParam = function buildParam (tableName, propert
 };
 
 /**
- * Check if given `child` is in fact a child in the currentSchema.
+ * Simple method which returns if supplied method is, or is not an operator.
+ *
+ * @param {string} subject
+ *
+ * @returns {boolean}
+ */
+CriteriaProcessor.prototype.isOperator = function isOperator (subject) {
+  return operators.indexOf(subject) > -1;
+};
+
+/**
+ * Check if given `child` is in fact a child in the currentSchema, and if so return the key.
  *
  * @param {string} child
  *
  * @returns {boolean}
  */
-CriteriaProcessor.prototype.isChild = function isChild (child) {
-  return typeof this.currentSchema[child] === 'object' && this.currentSchema[child].foreignKey;
+CriteriaProcessor.prototype.findChild = function findChild (child) {
+  var schema        = this.currentSchema,
+      definitionKey = schema[child] ? child : _.findKey(schema, {columnName: child});
+
+  return definitionKey && _.isPlainObject(schema[definitionKey]) && schema[definitionKey].foreignKey
+    ? definitionKey
+    : null;
 };
+
+
 
 /**
  * Process simple criteria.
@@ -463,14 +497,14 @@ CriteriaProcessor.prototype.processObject = function processObject (tableName, p
   this.queryString = this.queryString.slice(0, -4);
 
   // Expand criteria object
-  function expandCriteria(obj) {
-    var isChild = self.isChild(parent),
+  function expandCriteria (obj) {
+    var child = self.findChild(parent),
         sensitiveTypes = ['text', 'string'], // haha, "sensitive types". "I'll watch 'the notebook' with you, babe."
         lower;
 
     _.keys(obj).forEach(function(key) {
-      if (isChild) {
-        self.tableScope = parent;
+      if (child && !self.isOperator(key)) {
+        self.tableScope = child;
         self.expand(key, obj[key]);
         self.tableScope = null;
 
@@ -487,6 +521,10 @@ CriteriaProcessor.prototype.processObject = function processObject (tableName, p
       }
 
       lower = parentType && sensitiveTypes.indexOf(parentType) > -1;
+
+      if (!sensitive && _.isString(obj[key]) && lower) {
+        obj[key] = obj[key].toLowerCase();
+      }
 
       // Check if value is a string and if so add LOWER logic
       // to work with case in-sensitive queries
@@ -801,11 +839,13 @@ CriteriaProcessor.prototype.skip = function(options) {
  */
 
 CriteriaProcessor.prototype.sort = function(options) {
+  var keys = Object.keys(options);
+  if (!keys.length) { return; }
+  
   var self = this;
-
   this.queryString += ' ORDER BY ';
 
-  Object.keys(options).forEach(function(key) {
+  keys.forEach(function(key) {
     var direction = options[key] === 1 ? 'ASC' : 'DESC';
     // Option to order by column from the joined table
     if (key.indexOf('.') > 0) {
