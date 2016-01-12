@@ -66,6 +66,10 @@ var CriteriaProcessor = module.exports = function CriteriaProcessor(currentTable
     this.wlNext = options.wlNext;
   }
 
+  if(options && hop(options, 'schemaName')) {
+    this.schemaName = options.schemaName;
+  }
+
   return this;
 };
 
@@ -321,13 +325,13 @@ CriteriaProcessor.prototype._in = function _in(key, val) {
   // Check case sensitivity to decide if LOWER logic is used
   if(!caseSensitivity) {
     if(lower) {
-      key = 'LOWER(' + utils.escapeName(self.getTableAlias(), self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ')';
+      key = 'LOWER(' + utils.escapeName(self.getTableAlias(), self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ')';
     } else {
-      key = utils.escapeName(self.getTableAlias(), self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter);
+      key = utils.escapeName(self.getTableAlias(), self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter);
     }
     self.queryString += key + ' IN (';
   } else {
-    self.queryString += utils.escapeName(self.getTableAlias(), self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' IN (';
+    self.queryString += utils.escapeName(self.getTableAlias(), self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ' IN (';
   }
 
   // Append each value to query
@@ -373,7 +377,7 @@ CriteriaProcessor.prototype.buildParam = function buildParam (tableName, propert
   var escape = utils.escapeName,
       param;
 
-  param = escape(tableName, this.escapeCharacter) + '.' + escape(property, this.escapeCharacter);
+  param = escape(tableName, this.escapeCharacter, this.schemaName) + '.' + escape(property, this.escapeCharacter);
 
   if (caseSensitive) {
     param = 'LOWER(' + param + ')';
@@ -865,13 +869,13 @@ CriteriaProcessor.prototype.sort = function(options) {
             }
           }
         }
-        self.queryString += utils.escapeName('__' + keys[0], self.escapeCharacter) + '.' + utils.escapeName(columnName, self.escapeCharacter) + ' ' + direction + ', ';
+        self.queryString += utils.escapeName('__' + keys[0], self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(columnName, self.escapeCharacter) + ' ' + direction + ', ';
 
       } else {
-        self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
+        self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
       }
     } else {
-      self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
+      self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
     }
   });
 
@@ -892,7 +896,12 @@ CriteriaProcessor.prototype.group = function(options) {
   if(!Array.isArray(options)) options = [options];
 
   options.forEach(function(key) {
-    self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter) + '.' + utils.escapeName(key, self.escapeCharacter) + ', ';
+    // Check whether we are grouping by a column or an expression.
+    if (_.includes(_.keys(self.currentSchema), key)) {
+      self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ', ';
+    } else {
+      self.queryString += key + ', ';
+    }
   });
 
   // Remove trailing comma
