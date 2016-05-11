@@ -36,7 +36,7 @@ var CriteriaProcessor = module.exports = function CriteriaProcessor(currentTable
 
   this.currentTable = currentTable;
   this.schema = schema;
-  this.currentSchema = schema[currentTable].attributes;
+  this.currentSchema = schema[currentTable].definition;
   this.tableScope = null;
   this.queryString = '';
   this.values = [];
@@ -428,7 +428,7 @@ CriteriaProcessor.prototype.findChild = function findChild (child) {
 CriteriaProcessor.prototype.processSimple = function processSimple (tableName, parent, value, combinator, sensitive) {
   // Set lower logic to true
   var sensitiveTypes = ['text', 'string'],
-      currentSchema = this.schema[tableName].attributes,
+      currentSchema = this.schema[tableName].definition,
       self = this,
       parentType,
       lower;
@@ -466,12 +466,20 @@ CriteriaProcessor.prototype.processSimple = function processSimple (tableName, p
   }
 
   // Check if the value is a DATE and if it's not a date turn it into one
-  if(parentType === 'date' && !_.isDate(obj[key])) {
-    obj[key] = new Date(obj[key]);
+  if(parentType === 'date' && !_.isDate(value)) {
+    value = new Date(value);
   }
 
   if(_.isDate(value)) {
-    utils.prepareValue(obj[key]);
+    var date = value;
+    date = date.getFullYear() + '-' +
+      ('00' + (date.getMonth()+1)).slice(-2) + '-' +
+      ('00' + date.getDate()).slice(-2) + ' ' +
+      ('00' + date.getHours()).slice(-2) + ':' +
+      ('00' + date.getMinutes()).slice(-2) + ':' +
+      ('00' + date.getSeconds()).slice(-2);
+
+    value = date;
   }
 
   if (_.isString(value)) {
@@ -491,7 +499,7 @@ CriteriaProcessor.prototype.processSimple = function processSimple (tableName, p
  * @param {string}  [alias]
  */
 CriteriaProcessor.prototype.processObject = function processObject (tableName, parent, value, combinator, sensitive) {
-  var currentSchema = this.schema[tableName].attributes,
+  var currentSchema = this.schema[tableName].definition,
       self = this,
       parentType;
 
@@ -532,8 +540,15 @@ CriteriaProcessor.prototype.processObject = function processObject (tableName, p
 
       // Check if the value is a DATE and if it's not a date turn it into one
       if(parentType === 'date' && !_.isDate(obj[key])) {
-        obj[key] = new Date(obj[key]);
-        utils.prepareValue(obj[key]);
+        var date = new Date(obj[key]);
+        date = date.getFullYear() + '-' +
+          ('00' + (date.getMonth()+1)).slice(-2) + '-' +
+          ('00' + date.getDate()).slice(-2) + ' ' +
+          ('00' + date.getHours()).slice(-2) + ':' +
+          ('00' + date.getMinutes()).slice(-2) + ':' +
+          ('00' + date.getSeconds()).slice(-2);
+
+        obj[key] = date;
       }
 
       // Check if value is a string and if so add LOWER logic
@@ -815,6 +830,11 @@ CriteriaProcessor.prototype.prepareCriterion = function prepareCriterion(key, va
       }
 
       break;
+
+    default:
+      var err = new Error('Unknown filtering operator: "' + key + "\". Should be 'startsWith', '>', 'contains' or similar");
+      err.operator = key;
+      throw err;
   }
 
   // Bump paramCount
