@@ -881,26 +881,12 @@ CriteriaProcessor.prototype.sort = function(options) {
   this.queryString += ' ORDER BY ';
 
   keys.forEach(function(key) {
-    var direction = options[key] === 1 ? 'ASC' : 'DESC', table, tableAlias, tableName, columnName;
+    var direction = options[key] === 1 ? 'ASC' : 'DESC';
     // Option to order by column from the joined table
     if (key.indexOf('.') > 0) {
       var keys = key.split('.');
       if (keys.length === 2) {
-
-        tableAlias = self.schema[self.currentTable].attributes[keys[0]].references;
-        if (self.schema.hasOwnProperty(tableAlias)) {
-          columnName = self.schema[tableAlias].attributes[keys[1]].columnName || keys[1];
-        } else {
-          for (table in self.schema) {
-            if (self.schema[table].identity === tableAlias) {
-              tableName = self.schema[table].tableName;
-              columnName = self.schema[tableName].attributes[keys[1]].columnName || keys[1];
-              break;
-            }
-          }
-        }
-        self.queryString += utils.escapeName('__' + keys[0], self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(columnName, self.escapeCharacter) + ' ' + direction + ', ';
-
+        self.queryString += utils.escapeName('__' + keys[0], self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(keys[1], self.escapeCharacter) + ' ' + direction + ', ';
       } else {
         self.queryString += utils.escapeName(self.currentTable, self.escapeCharacter, self.schemaName) + '.' + utils.escapeName(key, self.escapeCharacter) + ' ' + direction + ', ';
       }
